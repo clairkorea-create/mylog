@@ -263,6 +263,13 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
 .note-title{font-size:13px;font-weight:500;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* TRAVEL extra */
 .travel-dates{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px}
+/* SHOPPING */
+.shop-price{font-size:11px;color:var(--accent);font-weight:600;flex-shrink:0}
+.shop-cb{width:17px;height:17px;border:1.5px solid var(--border2);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.shop-cb.bought{background:var(--accent);border-color:var(--accent)}
+.shop-cb.bought::after{content:'✓';color:#fff;font-size:9px}
+.shop-section-lbl{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;padding:6px 2px 8px;border-bottom:1px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.shop-bought-section{margin-top:20px}
 /* MODAL (범용) */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;align-items:center;justify-content:center;padding:16px}
 .modal-bg.show{display:flex}
@@ -397,7 +404,10 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
     <div class="modal-hdr"><span class="modal-title">쇼핑 수정</span><button class="modal-x" id="shopping-modal-x">×</button></div>
     <div class="modal-body">
       <div class="modal-field"><label>내용</label><textarea id="sm-content" rows="4"></textarea></div>
-      <div class="modal-field"><label>태그</label><input type="text" id="sm-tag" placeholder="태그 입력"></div>
+      <div style="display:flex;gap:8px">
+        <div class="modal-field" style="flex:1"><label>금액 (원)</label><input type="number" id="sm-price" placeholder="예: 35000"></div>
+        <div class="modal-field" style="flex:1"><label>태그</label><input type="text" id="sm-tag" placeholder="태그 입력"></div>
+      </div>
       <div class="modal-field">
         <label>사진 추가</label>
         <label class="photo-label" style="display:inline-flex"><span>📷</span><span>사진 선택</span><input type="file" id="sm-photos" multiple accept="image/*" style="display:none"></label>
@@ -739,9 +749,12 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
   <div class="p-icon">🛍️</div><div class="p-title">쇼핑</div>
   <div class="p-meta"><span id="shopping-meta">0개의 기록</span></div>
   <div class="note-form">
-    <div class="note-form-field"><label>내용</label><textarea id="shopping-input" placeholder="사고싶은 것, 구매 내역 등을 기록하세요..."></textarea></div>
+    <div class="note-form-field"><label>내용</label><textarea id="shopping-input" placeholder="사고 싶은 것, 아이템 이름 등을 기록하세요..."></textarea></div>
+    <div class="note-form-row">
+      <div class="note-form-field"><label>금액 (원)</label><input type="number" id="shopping-price" placeholder="예: 35000"></div>
+      <div class="note-form-field"><label>태그</label><input type="text" id="shopping-tag" placeholder="예: 의류, 뷰티"></div>
+    </div>
     <div class="note-form-foot">
-      <input type="text" id="shopping-tag" placeholder="태그 (예: 위시리스트, 구매완료)" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;font-family:var(--font)">
       <label class="photo-label"><span>📷</span><span>사진</span><input type="file" id="shopping-photos" multiple accept="image/*" style="display:none"></label>
       <button class="btn-save" id="shopping-add-btn">저장</button>
     </div>
@@ -757,6 +770,10 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
   </div>
   <div class="tag-filter-bar" id="shopping-tag-bar"><span class="tag-filter-bar-empty">태그 없음</span></div>
   <div id="shopping-list"><div class="empty">쇼핑 기록을 추가해보세요 ✦</div></div>
+  <div class="shop-bought-section">
+    <div class="shop-section-lbl">🛒 구매 완료 <span id="shopping-bought-total" style="font-size:10px;color:var(--accent);font-weight:600"></span></div>
+    <div id="shopping-bought-list"><div class="empty" style="padding:12px 0">구매 완료 항목이 없어요 ✦</div></div>
+  </div>
 </div>
 
 <!-- 검색 -->
@@ -1114,7 +1131,7 @@ document.getElementById('newTask').addEventListener('keydown',function(e){
 function switchPeriod(p){period=p;['day','week','month'].forEach(function(x){document.getElementById('chip-'+x).classList.toggle('active',x===p);});if(selMode.work)toggleSel('work');else renderTasks();}
 function renderTasks(){
   var indices=getFiltered(period),el=document.getElementById('task-list'),sm=selMode.work;
-  if(!indices.length){el.innerHTML='<div class="empty">업무를 추가해보세요 ✦</div>';updateWorkStats();return;}
+  if(!indices.length){el.innerHTML='<div class="empty">업무를 추가해보세요 ✦</div>';updateWorkStats([]);return;}
   el.innerHTML='';
   indices.forEach(function(i){
     var t=tasks[i],isSel=selSet.work.has(i);
@@ -1162,7 +1179,7 @@ function renderTasks(){
     }
     el.appendChild(card);
   });
-  updateWorkStats();
+  updateWorkStats(indices);
 }
 function addTask(){
   var txt=document.getElementById('newTask').value.trim();if(!txt)return;
@@ -1174,12 +1191,15 @@ function addTask(){
   document.getElementById('inline-add').style.display='none';
   save();renderTasks();renderCal();
 }
-function updateWorkStats(){
-  var done=tasks.filter(function(t){return t.done;}).length;
-  document.getElementById('st-total').textContent=tasks.length;
+function updateWorkStats(indices){
+  var filtered=indices||getFiltered(period);
+  var total=filtered.length;
+  var done=filtered.filter(function(i){return tasks[i]&&tasks[i].done;}).length;
+  document.getElementById('st-total').textContent=total;
   document.getElementById('st-done').textContent=done;
-  document.getElementById('st-pct').textContent=tasks.length?Math.round(done/tasks.length*100)+'%':'0%';
-  document.getElementById('work-prog').textContent=tasks.length?done+'/'+tasks.length+' 완료':'';
+  document.getElementById('st-pct').textContent=total?Math.round(done/total*100)+'%':'0%';
+  var pLabel={day:'오늘',week:'이번 주',month:'이번 달'}[period]||'';
+  document.getElementById('work-prog').textContent=total?pLabel+' '+done+'/'+total+' 완료':'';
 }
 
 // ── 목표 ──
@@ -1484,9 +1504,12 @@ document.getElementById('shopping-photos').addEventListener('change',function(){
 document.getElementById('shopping-add-btn').addEventListener('click',function(){
   var txt=document.getElementById('shopping-input').value.trim();if(!txt)return;
   var tag=document.getElementById('shopping-tag').value.trim();
+  var price=document.getElementById('shopping-price').value.trim();
   var key=todayKey(),parts=key.split('-'),disp=parseInt(parts[1])+'/'+(parseInt(parts[2]));
-  notes.shopping.unshift({content:txt,tag:tag,photos:shoppingNewPhotos.slice(),dateKey:key,dateDisplay:disp});
-  document.getElementById('shopping-input').value='';document.getElementById('shopping-tag').value='';
+  notes.shopping.unshift({content:txt,tag:tag,price:price,bought:false,photos:shoppingNewPhotos.slice(),dateKey:key,dateDisplay:disp});
+  document.getElementById('shopping-input').value='';
+  document.getElementById('shopping-tag').value='';
+  document.getElementById('shopping-price').value='';
   shoppingNewPhotos=[];document.getElementById('shopping-photo-preview').innerHTML='';
   document.getElementById('shopping-photos').value='';
   save();renderNotes('shopping');
@@ -1508,12 +1531,14 @@ document.getElementById('shopping-modal-del').addEventListener('click',function(
 });
 document.getElementById('shopping-modal-save').addEventListener('click',function(){
   if(noteEditIdx<0)return;
-  var key=notes.shopping[noteEditIdx].dateKey;
+  var orig=notes.shopping[noteEditIdx];
   notes.shopping[noteEditIdx]={
     content:document.getElementById('sm-content').value.trim(),
     tag:document.getElementById('sm-tag').value.trim(),
+    price:document.getElementById('sm-price').value.trim(),
+    bought:orig.bought||false,
     photos:shoppingEditPhotos.slice(),
-    dateKey:key,dateDisplay:notes.shopping[noteEditIdx].dateDisplay
+    dateKey:orig.dateKey,dateDisplay:orig.dateDisplay
   };
   document.getElementById('shopping-modal').classList.remove('show');noteEditIdx=-1;
   save();renderNotes('shopping');
@@ -1572,19 +1597,38 @@ function renderNotes(cat){
   if(!el)return;
   // 태그 필터 적용
   var activeTag=activeTagFilter[cat];
-  var filtered=activeTag?arr.filter(function(n){return parseTags(n.tag||'').indexOf(activeTag)>=0;}):arr;
+  // 쇼핑: 구매완료 항목은 위시리스트에서 제외
+  var baseArr=cat==='shopping'?arr.filter(function(n){return !n.bought;}):arr;
+  var filtered=activeTag?baseArr.filter(function(n){return parseTags(n.tag||'').indexOf(activeTag)>=0;}):baseArr;
   // 태그 바 렌더
   renderTagBar(cat);
   document.getElementById(cat+'-meta').textContent=arr.length+'개의 기록'+(activeTag?' · ['+activeTag+'] '+filtered.length+'개':'');
-  if(!filtered.length){el.innerHTML='<div class="empty">'+(activeTag?'['+activeTag+'] 태그 기록이 없어요 ✦':'기록을 추가해보세요 ✦')+'</div>';return;}
+  if(!filtered.length){el.innerHTML='<div class="empty">'+(activeTag?'['+activeTag+'] 태그 기록이 없어요 ✦':'기록을 추가해보세요 ✦')+'</div>';
+  if(cat==='shopping')renderShoppingBought();return;}
   el.innerHTML='';
-  // 필터된 항목의 원본 인덱스 필요
-  var indexMap=activeTag?arr.reduce(function(a,n,i){if(parseTags(n.tag||'').indexOf(activeTag)>=0)a.push(i);return a;},[]): arr.map(function(_,i){return i;});
-  indexMap.forEach(function(origIdx,fi){
+  // 원본 arr 기준 인덱스 목록 생성 (클로저 안전하게 처리)
+  var indexMap=[];
+  arr.forEach(function(n,idx){
+    if(cat==='shopping'&&n.bought)return; // 구매완료 제외
+    if(activeTag&&parseTags(n.tag||'').indexOf(activeTag)<0)return;
+    indexMap.push(idx);
+  });
+  indexMap.forEach(function(origIdx){
     var n=arr[origIdx],i=origIdx;
     var isSel=selSet[cat].has(i);
     var item=document.createElement('div');item.className='note-item'+(isSel?' row-sel':'');
     var hdr=document.createElement('div');hdr.className='note-item-hdr';
+    if(cat==='shopping'&&!sm){
+      var shopCb=document.createElement('div');
+      shopCb.className='shop-cb'+(n.bought?' bought':'');
+      shopCb.title=n.bought?'구매 취소':'구매 완료';
+      shopCb.addEventListener('click',function(e){
+        e.stopPropagation();
+        notes.shopping[i].bought=!notes.shopping[i].bought;
+        save();renderNotes('shopping');
+      });
+      hdr.appendChild(shopCb);
+    }
     if(sm){
       var cb=document.createElement('div');cb.className='sel-cb'+(isSel?' on':'');hdr.appendChild(cb);
       item.style.cursor='pointer';item.addEventListener('click',function(){toggleItem(cat,i);});
@@ -1606,6 +1650,7 @@ function renderNotes(cat){
       });
       hdr.appendChild(tg);
     });
+    if(cat==='shopping'&&n.price){var prEl=document.createElement('span');prEl.className='shop-price';prEl.textContent=parseFloat(n.price).toLocaleString()+'원';hdr.appendChild(prEl);}
     var dateEl=document.createElement('span');dateEl.className='note-date';dateEl.textContent=n.dateDisplay||'';hdr.appendChild(dateEl);
     if(!sm){
       var acts=document.createElement('div');acts.className='note-item-actions';
@@ -1628,6 +1673,31 @@ function renderNotes(cat){
     if(!sm){hdr.style.cursor='pointer';hdr.addEventListener('click',function(){bodyWrap.classList.toggle('open');});}
     el.appendChild(item);
   });
+  if(cat==='shopping')renderShoppingBought();
+}
+
+function renderShoppingBought(){
+  var arr=(notes.shopping||[]);
+  var boughtEl=document.getElementById('shopping-bought-list');
+  var totalEl=document.getElementById('shopping-bought-total');
+  if(!boughtEl)return;
+  var total=arr.filter(function(n){return n.bought;}).reduce(function(s,n){return s+(parseFloat(n.price)||0);},0);
+  totalEl.textContent=arr.filter(function(n){return n.bought;}).length?'총 '+total.toLocaleString()+'원':'';
+  var bought=arr.filter(function(n){return n.bought;});
+  if(!bought.length){boughtEl.innerHTML='<div class="empty" style="padding:12px 0">구매 완료 항목이 없어요 ✦</div>';return;}
+  boughtEl.innerHTML='';
+  arr.forEach(function(n,i){
+    if(!n.bought)return;
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:0.5px solid var(--border)';
+    var cb=document.createElement('div');cb.className='shop-cb bought';cb.title='구매 취소';
+    cb.addEventListener('click',function(){notes.shopping[i].bought=false;save();renderNotes('shopping');});
+    row.appendChild(cb);
+    var txt=document.createElement('span');txt.style.cssText='flex:1;font-size:13px;color:var(--text2);text-decoration:line-through';txt.textContent=n.content||'';row.appendChild(txt);
+    parseTags(n.tag||'').forEach(function(t){var tg=document.createElement('span');tg.className='note-tag';tg.textContent=t;row.appendChild(tg);});
+    if(n.price){var pr=document.createElement('span');pr.className='shop-price';pr.textContent=parseFloat(n.price).toLocaleString()+'원';row.appendChild(pr);}
+    boughtEl.appendChild(row);
+  });
 }
 
 function openNoteEdit(cat,i){
@@ -1646,6 +1716,7 @@ function openNoteEdit(cat,i){
   } else if(cat==='shopping'){
     document.getElementById('sm-content').value=n.content||'';
     document.getElementById('sm-tag').value=n.tag||'';
+    document.getElementById('sm-price').value=n.price||'';
     shoppingEditPhotos=(n.photos||[]).slice();
     renderPhotoPreview('sm-preview',shoppingEditPhotos);
     document.getElementById('sm-photos').value='';
